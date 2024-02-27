@@ -10,6 +10,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"go/format"
 	"io/ioutil"
 	"log"
 	"net"
@@ -124,7 +125,7 @@ func NewGoWSDL(file, pkg string, ignoreTLS bool, exportAllTypes bool) (*GoWSDL, 
 
 // Start initiaties the code generation process by starting two goroutines: one
 // to generate types and another one to generate operations.
-func (g *GoWSDL) Start() (map[string][]byte, error) {
+func (g *GoWSDL) Start(pkg string) (map[string][]byte, error) {
 	gocode := make(map[string][]byte)
 
 	err := g.unmarshal()
@@ -147,6 +148,15 @@ func (g *GoWSDL) Start() (map[string][]byte, error) {
 		gocode["types"], err = g.genTypes()
 		if err != nil {
 			log.Println("genTypes", "error", err)
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		g.genTypesV2(pkg)
+		if err != nil {
+			log.Println("genTypesV2", "error", err)
 		}
 	}()
 
@@ -312,6 +322,72 @@ func (g *GoWSDL) genTypes() ([]byte, error) {
 	}
 
 	return data.Bytes(), nil
+}
+
+func (g *GoWSDL) genTypesV2(pkg string) error {
+	funcMap := template.FuncMap{
+		"toGoType":                 toGoType,
+		"stripns":                  stripns,
+		"replaceReservedWords":     replaceReservedWords,
+		"replaceAttrReservedWords": replaceAttrReservedWords,
+		"normalize":                normalize,
+		"makePublic":               g.makePublicFn,
+		"makeFieldPublic":          makePublic,
+		"comment":                  comment,
+		"removeNS":                 removeNS,
+		"goString":                 goString,
+		"findNameByType":           g.findNameByType,
+		"removePointerFromType":    removePointerFromType,
+		"setNS":                    g.setNS,
+		"getNS":                    g.getNS,
+	}
+
+	data := new(bytes.Buffer)
+	tmpl := template.Must(template.New("type").Funcs(funcMap).Parse(typeTmpl))
+	names := []string{}
+	tmpPkg := g.pkg
+	for _, s := range g.wsdl.Types.Schemas {
+		for _, e := range s.Elements {
+			names = append(names, e.Name)
+		}
+		name := strings.Join(names, " ")
+		fmt.Println(name)
+		err := tmpl.Execute(data, s)
+		if err != nil {
+			return err
+		}
+		g.pkg = name
+		header, err := g.genHeader()
+		if err != nil {
+			return err
+		}
+		pkg := filepath.Join(pkg, name)
+		err = os.Mkdir(pkg, 0744)
+		if err != nil {
+			return err
+		}
+
+		file, err := os.Create(filepath.Join(pkg, name+".go"))
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		data := new(bytes.Buffer)
+		data.Write(header)
+		data.Write(data.Bytes())
+
+		// go fmt the generated code
+		source, err := format.Source(data.Bytes())
+		if err != nil {
+			file.Write(data.Bytes())
+		}
+
+		file.Write(source)
+		file.Close()
+	}
+	g.pkg = tmpPkg
+
+	return nil
 }
 
 func (g *GoWSDL) genOperations() ([]byte, error) {

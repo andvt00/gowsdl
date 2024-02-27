@@ -59,7 +59,7 @@ import (
 )
 
 // Version is initialized in compilation time by go build.
-var Version string
+var Version string = "VNA"
 
 // Name is initialized in compilation time by go build.
 var Name string
@@ -108,12 +108,6 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	// generate code
-	gocode, err := gowsdl.Start()
-	if err != nil {
-		log.Fatalln(err)
-	}
-
 	pkg := filepath.Join(*dir, *pkg)
 	err = os.Mkdir(pkg, 0744)
 
@@ -122,6 +116,12 @@ func main() {
 		log.Fatalln(err)
 	}
 	defer file.Close()
+
+	// generate code
+	gocode, err := gowsdl.Start(pkg)
+	if err != nil {
+		log.Fatalln(err)
+	}
 
 	data := new(bytes.Buffer)
 	data.Write(gocode["header"])
