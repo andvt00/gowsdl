@@ -126,8 +126,8 @@ func main() {
 	data := new(bytes.Buffer)
 	data.Write(gocode["header"])
 	data.Write(gocode["types"])
-	data.Write(gocode["operations"])
-	data.Write(gocode["soap"])
+	// data.Write(gocode["operations"])
+	// data.Write(gocode["soap"])
 
 	// go fmt the generated code
 	source, err := format.Source(data.Bytes())
@@ -139,23 +139,23 @@ func main() {
 	file.Write(source)
 
 	// server
-	serverFile, err := os.Create(pkg + "/" + "server" + *outFile)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	defer serverFile.Close()
+	// serverFile, err := os.Create(pkg + "/" + "server" + *outFile)
+	// if err != nil {
+	// 	log.Fatalln(err)
+	// }
+	// defer serverFile.Close()
 
-	serverData := new(bytes.Buffer)
-	serverData.Write(gocode["server_header"])
-	serverData.Write(gocode["server_wsdl"])
-	serverData.Write(gocode["server"])
+	// serverData := new(bytes.Buffer)
+	// serverData.Write(gocode["server_header"])
+	// serverData.Write(gocode["server_wsdl"])
+	// serverData.Write(gocode["server"])
 
-	serverSource, err := format.Source(serverData.Bytes())
-	if err != nil {
-		serverFile.Write(serverData.Bytes())
-		log.Fatalln(err)
-	}
-	serverFile.Write(serverSource)
+	// serverSource, err := format.Source(serverData.Bytes())
+	// if err != nil {
+	// 	serverFile.Write(serverData.Bytes())
+	// 	log.Fatalln(err)
+	// }
+	// serverFile.Write(serverSource)
 
 	log.Println("Done 👍")
 }
